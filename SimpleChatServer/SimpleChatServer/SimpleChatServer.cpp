@@ -87,7 +87,7 @@ int main(int argc, char** argv)
 			WSACleanup();
 			return 1;
 		}
-
+        std::cout << "socket connected: " << clientSocket << std::endl;
 		char recvbuf[DEFAULT_BUFLEN];
 		do {
 			iResult = recv(clientSocket, recvbuf, DEFAULT_BUFLEN, 0);

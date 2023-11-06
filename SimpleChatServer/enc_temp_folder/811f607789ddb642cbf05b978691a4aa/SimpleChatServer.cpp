@@ -87,10 +87,9 @@ int main(int argc, char** argv)
 			WSACleanup();
 			return 1;
 		}
-
+        std::cout << "socket connected: " << clientSocket << std::endl;
 		char recvbuf[DEFAULT_BUFLEN];
 		do {
-
 			iResult = recv(clientSocket, recvbuf, DEFAULT_BUFLEN, 0);
 			if (iResult > 0) {
 				std::cout << "Bytes Received: " << iResult << std::endl;
@@ -104,7 +103,6 @@ int main(int argc, char** argv)
 			}
 		} while (iResult > 0);
     } while (iResult >= 0);
-
 
     std::cout << "정상 종료" << std::endl;
     return 0;

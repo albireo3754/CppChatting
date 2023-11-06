@@ -75,7 +75,6 @@ int main(int argc, char ** argv)
         WSACleanup();
         return 1;
     }
-
     iResult = shutdown(connectSocket, SD_SEND);
     if (iResult == SOCKET_ERROR) {
         printf("shutdown failed: %d\n", WSAGetLastError());
@@ -85,7 +84,7 @@ int main(int argc, char ** argv)
     }
 
     freeaddrinfo(result);
-
+    closesocket(connectSocket);
     WSACleanup();
     return 0;
 }
