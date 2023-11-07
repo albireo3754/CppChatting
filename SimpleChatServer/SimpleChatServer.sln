@@ -5,6 +5,8 @@ VisualStudioVersion = 17.3.32929.385
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SimpleChatServer", "SimpleChatServer\SimpleChatServer.vcxproj", "{39992E60-E205-41BF-9DEB-EE1A8746775C}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "IOCPSimpleChatServer", "IOCPSimpleChatServer\IOCPSimpleChatServer.vcxproj", "{2BA0CF1E-0712-4BE4-B664-469C1E5AF03D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -21,6 +23,14 @@ Global
 		{39992E60-E205-41BF-9DEB-EE1A8746775C}.Release|x64.Build.0 = Release|x64
 		{39992E60-E205-41BF-9DEB-EE1A8746775C}.Release|x86.ActiveCfg = Release|Win32
 		{39992E60-E205-41BF-9DEB-EE1A8746775C}.Release|x86.Build.0 = Release|Win32
+		{2BA0CF1E-0712-4BE4-B664-469C1E5AF03D}.Debug|x64.ActiveCfg = Debug|x64
+		{2BA0CF1E-0712-4BE4-B664-469C1E5AF03D}.Debug|x64.Build.0 = Debug|x64
+		{2BA0CF1E-0712-4BE4-B664-469C1E5AF03D}.Debug|x86.ActiveCfg = Debug|Win32
+		{2BA0CF1E-0712-4BE4-B664-469C1E5AF03D}.Debug|x86.Build.0 = Debug|Win32
+		{2BA0CF1E-0712-4BE4-B664-469C1E5AF03D}.Release|x64.ActiveCfg = Release|x64
+		{2BA0CF1E-0712-4BE4-B664-469C1E5AF03D}.Release|x64.Build.0 = Release|x64
+		{2BA0CF1E-0712-4BE4-B664-469C1E5AF03D}.Release|x86.ActiveCfg = Release|Win32
+		{2BA0CF1E-0712-4BE4-B664-469C1E5AF03D}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

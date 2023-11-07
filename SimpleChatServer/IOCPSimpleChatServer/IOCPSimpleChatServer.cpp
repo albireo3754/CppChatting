@@ -9,12 +9,17 @@ const uint16_t SERVER_PORT = 11021;
 
 int main()
 {
-    IOCompletionPort ioCompletionPort{};
+    try {
+        IOCompletionPort ioCompletionPort{};
+        ioCompletionPort.Bind(SERVER_PORT);
+        ioCompletionPort.Listen();
+        ioCompletionPort.Start();
+    }
+    catch (std::runtime_error exp) {
+        std::cout << "[Error] Server error!" << exp.what() << "\n";
+    }
 
-    ioCompletionPort.Bind(SERVER_PORT);
-    ioCompletionPort.Listen();
-    ioCompletionPort.Start();
-
+    std::cout << "종료";
     return 0;
 }
 
