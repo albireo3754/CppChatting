@@ -4,6 +4,8 @@
 #include <iostream>
 #include <WinSock2.h>
 #include <ws2tcpip.h>
+#include <thread>
+#include <string>
 
 #pragma comment(lib, "Ws2_32.lib")
 
@@ -64,16 +66,25 @@ int main(int argc, char ** argv)
     }
 
     constexpr int recvbuflen = 512;
-    const char* sendbuf = "this is a test";
+    int count = 0;
+    char sendbuf[512] = "this is a test";
     char recvbuf[recvbuflen];
-
-    iResult = send(connectSocket, sendbuf, (int)strlen(sendbuf), 0);
+    
+    while (true) {
+        count++;
+        //std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        sendbuf[count] = 'k';
+        iResult = send(connectSocket, sendbuf, (int)strlen(sendbuf), 0);
     if (iResult == SOCKET_ERROR) {
         std::cout << "send failed" << WSAGetLastError() << std::endl;
         closesocket(connectSocket);
         freeaddrinfo(result);
         WSACleanup();
         return 1;
+    }
+    else {
+        std::cout << "send success\n";
+       }
     }
     iResult = shutdown(connectSocket, SD_SEND);
     if (iResult == SOCKET_ERROR) {

@@ -60,17 +60,25 @@ public:
 				for (int i = 0; i < t; ++i) {
 					// Listen소켓 오버랩시 0번으로 초기화 함
 					if (x->lpCompletionKey == (ULONG_PTR)&listenSocket) {
-						Socket candidatedClientSocket{};
-						if (listenSocket.AcceptEx(candidatedClientSocket)) {
-							std::cout << "new Overlap!\n";
+						if (candidatedClientSocket.UpdateAcceptContext(listenSocket)) {
+							Add(candidatedClientSocket);
+							candidatedClientSocket.OverlappedReceive();
 						}
 						else {
-							std::cout << "new Overlap fail with: " << WSAGetLastError() << "\n";
+							std::cout << "AcceptedSocket Update Fail with : " << WSAGetLastError() << "\n";
 						}
-						std::cout << "accept 시도\n << b";
+						// TODO: - 클라이언트 소켓을 추가하기 위한 자료구조가 하나 필요함 ex hash?
+						//Socket candidatedClientSocket{};
+						//if (listenSocket.AcceptEx(candidatedClientSocket)) {
+						//	std::cout << "new Overlap!\n";
+						//}
+						//else {
+						//	std::cout << "new Overlap fail with: " << WSAGetLastError() << "\n";
+						//}
 					}
 					else {
-						std::cout << "Recv\n";
+						candidatedClientSocket.onReceive();
+						candidatedClientSocket.OverlappedReceive();
 					}
 				}
 				std::cout << "Listen Event count: " << t << "\n";

@@ -19,7 +19,9 @@ int main()
         IOCompletionPort ioCompletionPort{};
         Socket listenSocket{};
         listenSocket.Bind(SERVER_PORT);
-        listenSocket.Listen();
+        if (listenSocket.Listen()) {
+            return 1;
+        }
         ioCompletionPort.Start(listenSocket);
     }
     catch (std::runtime_error exp) {

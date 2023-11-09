@@ -1,5 +1,6 @@
 #pragma once
 #pragma comment(lib, "ws2_32")
+#pragma comment(lib,"mswsock")
 
 #include <WinSock2.h>
 #include <ws2tcpip.h>
@@ -9,10 +10,14 @@
 
 class Socket {
 public:
+	static constexpr int MaxReceiveLength = 1024;
+
 	Socket() :
 		mWinSockImpl(WSASocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, NULL, WSA_FLAG_OVERLAPPED)),
 		mLPAcceptExImpl(nullptr),
-		dwBytes(0)
+		dwBytes(0),
+		mReceiveBuffer(""),
+		mReadFlag(0)
 	{
 		if (mWinSockImpl == INVALID_SOCKET) {
 			throw std::runtime_error("INVALID SOCKET");
@@ -63,6 +68,45 @@ public:
 		return true;
 	}
 
+	bool UpdateAcceptContext(Socket& listenSocket)
+	{
+		sockaddr_in* lpLocalSockaddr;
+		int lpLocalSockaddrlen = 0;
+		sockaddr_in* lpRemoteSockaddr;
+		int lpRemoteSockaddrlen = 0;
+		constexpr int buflen = 1024;
+
+		char buf[buflen] = {};
+
+		GetAcceptExSockaddrs(
+			buf,
+			buflen - ((sizeof(SOCKADDR_IN) + 16) * 2),
+			sizeof(SOCKADDR_IN) + 16,
+			sizeof(SOCKADDR_IN) + 16,
+			(sockaddr**)&lpLocalSockaddr,
+			&lpLocalSockaddrlen,
+			(sockaddr**)&lpRemoteSockaddr,
+			&lpRemoteSockaddrlen
+		);
+		std::cout << "buf 도착 : " << buf << "\n";
+
+		return setsockopt(mWinSockImpl, SOL_SOCKET, SO_UPDATE_ACCEPT_CONTEXT,
+			(char*)&listenSocket.mWinSockImpl, sizeof(listenSocket.mWinSockImpl)) == 0;
+	}
+
+	int OverlappedReceive()
+	{
+		WSABUF b{};
+		b.buf = mReceiveBuffer;
+		
+		b.len = MaxReceiveLength;
+
+		// overlapped I/O가 진행되는 동안 여기 값이 채워집니다.
+		WSAOVERLAPPED overlapped{};
+
+		return WSARecv(mWinSockImpl, &b, 1, (LPDWORD)&mReceiveBufferLen, &mReadFlag, &overlapped, NULL);
+	}
+
 	bool Close() const {
 		return closesocket(mWinSockImpl) == 0;
 	}
@@ -83,8 +127,15 @@ public:
 		return true;
 	}
 
+	void onReceive() {
+		std::cout << "onReceive " << mReceiveBufferLen << "bytes: " << mReceiveBuffer << "\n";
+	}
+
 	SOCKET mWinSockImpl;
 private:
 	LPFN_ACCEPTEX mLPAcceptExImpl;
 	DWORD dwBytes;
+	char mReceiveBuffer[MaxReceiveLength];
+	int mReceiveBufferLen;
+	DWORD mReadFlag;
 };
