@@ -122,8 +122,11 @@ public:
 			return false;
 		}
 		
+		std::cout << "111";
 		OVERLAPPED_ENTRY x[1024];
+	
 		ULONG t = 0;
+
 		while (true) 
 		{
 			BOOL r = GetQueuedCompletionStatusEx(mIOCPHandle, x, 1024, &t, INFINITE, FALSE);
