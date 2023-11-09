@@ -4,16 +4,23 @@
 #include "pch.h"
 #include "IOCompletionPort.h"
 #include <iostream>
+#include <memory>
 
 const uint16_t SERVER_PORT = 27015;
 
 int main()
 {
     try {
+        WSAData wsaData;
+        int nResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
+        if (nResult) {
+            throw std::runtime_error{ "WSAStartup Fail" };
+        }
         IOCompletionPort ioCompletionPort{};
-        ioCompletionPort.Bind(SERVER_PORT);
-        ioCompletionPort.Listen();
-        ioCompletionPort.Start();
+        Socket listenSocket{};
+        listenSocket.Bind(SERVER_PORT);
+        listenSocket.Listen();
+        ioCompletionPort.Start(listenSocket);
     }
     catch (std::runtime_error exp) {
         std::cout << "[Error] Server error!" << exp.what() << "\n";
