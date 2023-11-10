@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <iostream>
 #include <MSWSock.h>
+#include <string>
 
 class Socket {
 public:
@@ -98,13 +99,11 @@ public:
 	{
 		WSABUF b{};
 		b.buf = mReceiveBuffer;
-		
 		b.len = MaxReceiveLength;
 
 		// overlapped I/O가 진행되는 동안 여기 값이 채워집니다.
-		WSAOVERLAPPED overlapped{};
 
-		return WSARecv(mWinSockImpl, &b, 1, (LPDWORD)&mReceiveBufferLen, &mReadFlag, &overlapped, NULL);
+		return WSARecv(mWinSockImpl, &b, 1, NULL, &mReadFlag, &overlapped, NULL);
 	}
 
 	bool Close() const {
@@ -128,7 +127,9 @@ public:
 	}
 
 	void onReceive() {
-		std::cout << "onReceive " << mReceiveBufferLen << "bytes: " << mReceiveBuffer << "\n";
+		auto received = std::string{ mReceiveBuffer };
+		std::cout << "onReceive event: " << overlapped.hEvent << "bytes: " << mReceiveBuffer << " readflag : " << mReadFlag << "string : " << received << "\n";
+		memset(mReceiveBuffer, 0, MaxReceiveLength);
 	}
 
 	SOCKET mWinSockImpl;
@@ -136,6 +137,6 @@ private:
 	LPFN_ACCEPTEX mLPAcceptExImpl;
 	DWORD dwBytes;
 	char mReceiveBuffer[MaxReceiveLength];
-	int mReceiveBufferLen;
 	DWORD mReadFlag;
+	WSAOVERLAPPED overlapped;
 };

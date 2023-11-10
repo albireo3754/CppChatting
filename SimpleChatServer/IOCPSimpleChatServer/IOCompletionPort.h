@@ -48,6 +48,7 @@ public:
 		listenSocket.AcceptEx(candidatedClientSocket);
 		
 		OVERLAPPED_ENTRY x[1024];
+		memset(x, 0, sizeof(OVERLAPPED_ENTRY) * 1024);
 		ULONG t = 0;
 		while (true) 
 		{
@@ -58,13 +59,17 @@ public:
 			}
 			else {
 				for (int i = 0; i < t; ++i) {
+					auto event = x[i];
 					// Listen소켓 오버랩시 0번으로 초기화 함
-					if (x->lpCompletionKey == (ULONG_PTR)&listenSocket) {
-						if (candidatedClientSocket.UpdateAcceptContext(listenSocket)) {
+					if (x->lpCompletionKey == (ULONG_PTR)&listenSocket) 
+					{
+						if (candidatedClientSocket.UpdateAcceptContext(listenSocket)) 
+						{
 							Add(candidatedClientSocket);
 							candidatedClientSocket.OverlappedReceive();
 						}
-						else {
+						else 
+						{
 							std::cout << "AcceptedSocket Update Fail with : " << WSAGetLastError() << "\n";
 						}
 						// TODO: - 클라이언트 소켓을 추가하기 위한 자료구조가 하나 필요함 ex hash?
@@ -76,9 +81,18 @@ public:
 						//	std::cout << "new Overlap fail with: " << WSAGetLastError() << "\n";
 						//}
 					}
-					else {
-						candidatedClientSocket.onReceive();
-						candidatedClientSocket.OverlappedReceive();
+					else 
+					{
+						if (event.dwNumberOfBytesTransferred <= 0) 
+						{
+							std::cout << "overlap 종료" << "\n";
+						}
+						else 
+						{
+							std::cout << "event 도착: " << event.dwNumberOfBytesTransferred << "\n";
+							candidatedClientSocket.onReceive();
+							candidatedClientSocket.OverlappedReceive();
+						}
 					}
 				}
 				std::cout << "Listen Event count: " << t << "\n";

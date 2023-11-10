@@ -67,12 +67,11 @@ int main(int argc, char ** argv)
 
     constexpr int recvbuflen = 512;
     int count = 0;
-    char sendbuf[512] = "this is a test";
+    char sendbuf[512] = "this is a test\n";
     char recvbuf[recvbuflen];
     
-    while (true) {
+    while (count < 10) {
         count++;
-        //std::this_thread::sleep_for(std::chrono::milliseconds(500));
         sendbuf[count] = 'k';
         iResult = send(connectSocket, sendbuf, (int)strlen(sendbuf), 0);
     if (iResult == SOCKET_ERROR) {
@@ -86,6 +85,7 @@ int main(int argc, char ** argv)
         std::cout << "send success\n";
        }
     }
+    std::this_thread::sleep_for(std::chrono::milliseconds(50000));
     iResult = shutdown(connectSocket, SD_SEND);
     if (iResult == SOCKET_ERROR) {
         printf("shutdown failed: %d\n", WSAGetLastError());
