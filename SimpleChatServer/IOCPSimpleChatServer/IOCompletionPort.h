@@ -2,7 +2,8 @@
 #pragma once
 
 #include "Socket.h"
-
+#include <unordered_map>
+#include <memory>
 #define MAX_SOCKBUF 1024	//패킷 크기
 #define MAX_WORKERTHREAD 4  //쓰레드 풀에 넣을 쓰레드 수
 
@@ -31,8 +32,8 @@ public:
 
 	bool InitSocket() {}
 	
-	bool Add(Socket& listenSocket) {
-		return !CreateIoCompletionPort((HANDLE)listenSocket.mWinSockImpl, mIOCPHandle, (ULONG_PTR)& listenSocket, 0);
+	bool Add(Socket& socket) {
+		return !CreateIoCompletionPort((HANDLE)socket.mWinSockImpl, mIOCPHandle, (ULONG_PTR)&socket, 0);
 	}
 
 	bool Start(Socket& listenSocket) {
@@ -43,16 +44,16 @@ public:
 		}
 	
 		// TODO: 에러처리 더 하기, 당장은 소켓 생성에 에러날 일은 없음
-		Socket candidatedClientSocket{};
+		std::shared_ptr<Socket> candidatedClientSocket = std::make_shared<Socket>();
+		listenSocket.AcceptEx(*candidatedClientSocket);
+		clientSockets[candidatedClientSocket.get()] = candidatedClientSocket;
 
-		listenSocket.AcceptEx(candidatedClientSocket);
-		
 		OVERLAPPED_ENTRY x[1024];
 		memset(x, 0, sizeof(OVERLAPPED_ENTRY) * 1024);
 		ULONG t = 0;
 		while (true) 
 		{
-			BOOL r = GetQueuedCompletionStatusEx(mIOCPHandle, x, 1024, &t, 1000, FALSE);
+			BOOL r = GetQueuedCompletionStatusEx(mIOCPHandle, x, 1024, &t, 100000, FALSE);
 			if (!r)
 			{
 				std::cout << "Fail! GetQueuedCompletionStatusEx\n reason: " << GetLastError() << " + " << WSAGetLastError() << "\n";
@@ -63,35 +64,45 @@ public:
 					// Listen소켓 오버랩시 0번으로 초기화 함
 					if (x->lpCompletionKey == (ULONG_PTR)&listenSocket) 
 					{
-						if (candidatedClientSocket.UpdateAcceptContext(listenSocket)) 
+						if (candidatedClientSocket->UpdateAcceptContext(listenSocket)) 
 						{
-							Add(candidatedClientSocket);
-							candidatedClientSocket.OverlappedReceive();
+							Add(*candidatedClientSocket);
+
+							if (candidatedClientSocket->OverlappedReceive() != 0
+								&& WSAGetLastError() != ERROR_IO_PENDING)
+							{
+								std::cout << "[Error] overLappedReceive Fail with : " << WSAGetLastError() << "\n";
+								clientSockets.erase(candidatedClientSocket.get());
+							}
 						}
 						else 
 						{
 							std::cout << "AcceptedSocket Update Fail with : " << WSAGetLastError() << "\n";
+							clientSockets.erase(candidatedClientSocket.get());
 						}
-						// TODO: - 클라이언트 소켓을 추가하기 위한 자료구조가 하나 필요함 ex hash?
-						//Socket candidatedClientSocket{};
-						//if (listenSocket.AcceptEx(candidatedClientSocket)) {
-						//	std::cout << "new Overlap!\n";
-						//}
-						//else {
-						//	std::cout << "new Overlap fail with: " << WSAGetLastError() << "\n";
-						//}
+						candidatedClientSocket = std::make_shared<Socket>();
+						listenSocket.AcceptEx(*candidatedClientSocket);
+						clientSockets[candidatedClientSocket.get()] = candidatedClientSocket;
 					}
 					else 
 					{
-						if (event.dwNumberOfBytesTransferred <= 0) 
+						Socket* key = (Socket*)(x->lpCompletionKey);
+						if (clientSockets.find(key) == clientSockets.end())
 						{
-							std::cout << "overlap 종료" << "\n";
+							std::cout << "[Info] Already closed Socket: " << (Socket*)(x->lpCompletionKey) << "\n";
+						} 
+						else if (event.dwNumberOfBytesTransferred <= 0) 
+						{
+							auto clientSocket = clientSockets[key];
+							clientSockets.erase(key);
+							std::cout << "socket 종료" << "\n";
 						}
 						else 
 						{
 							std::cout << "event 도착: " << event.dwNumberOfBytesTransferred << "\n";
-							candidatedClientSocket.onReceive();
-							candidatedClientSocket.OverlappedReceive();
+							auto clientSocket = clientSockets[key];
+							clientSocket->OnReceive();
+							clientSocket->OverlappedReceive();
 						}
 					}
 				}
@@ -104,6 +115,7 @@ public:
 	}
 private:
 	HANDLE mIOCPHandle;
+	std::unordered_map<Socket*, std::shared_ptr<Socket>> clientSockets;
 };
 
 

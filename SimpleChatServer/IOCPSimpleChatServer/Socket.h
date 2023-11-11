@@ -9,6 +9,7 @@
 #include <MSWSock.h>
 #include <string>
 
+
 class Socket {
 public:
 	static constexpr int MaxReceiveLength = 1024;
@@ -20,8 +21,21 @@ public:
 		mReceiveBuffer(""),
 		mReadFlag(0)
 	{
+		std::cout << this << "[Info] New Socket Will Created \n";
+		memset(&overlapped, 0, sizeof(WSAOVERLAPPED));
 		if (mWinSockImpl == INVALID_SOCKET) {
 			throw std::runtime_error("INVALID SOCKET");
+		}
+	}
+	
+	~Socket() {
+		if (Close())
+		{
+			std::cout << this << "[Info] Socket Did Closed\n";
+		}
+		else 
+		{
+			std::cout << this << "[Error] Socket Did Not Closed with: " << WSAGetLastError() << "\n";
 		}
 	}
 
@@ -101,9 +115,7 @@ public:
 		b.buf = mReceiveBuffer;
 		b.len = MaxReceiveLength;
 
-		// overlapped I/O가 진행되는 동안 여기 값이 채워집니다.
-
-		return WSARecv(mWinSockImpl, &b, 1, NULL, &mReadFlag, &overlapped, NULL);
+		return WSARecv(mWinSockImpl, &b, 1, &lpNumberOfBytesRecvd, &mReadFlag, &overlapped, NULL);
 	}
 
 	bool Close() const {
@@ -126,10 +138,10 @@ public:
 		return true;
 	}
 
-	void onReceive() {
+	void OnReceive() {
 		auto received = std::string{ mReceiveBuffer };
 		std::cout << "onReceive event: " << overlapped.hEvent << "bytes: " << mReceiveBuffer << " readflag : " << mReadFlag << "string : " << received << "\n";
-		memset(mReceiveBuffer, 0, MaxReceiveLength);
+		//memset(mReceiveBuffer, 0, MaxReceiveLength);
 	}
 
 	SOCKET mWinSockImpl;
@@ -138,5 +150,6 @@ private:
 	DWORD dwBytes;
 	char mReceiveBuffer[MaxReceiveLength];
 	DWORD mReadFlag;
+	DWORD lpNumberOfBytesRecvd;
 	WSAOVERLAPPED overlapped;
 };
