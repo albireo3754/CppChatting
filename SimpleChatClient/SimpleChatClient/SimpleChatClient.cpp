@@ -85,7 +85,6 @@ int main(int argc, char ** argv)
         std::cout << "send success\n";
        }
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(50000));
     iResult = shutdown(connectSocket, SD_SEND);
     if (iResult == SOCKET_ERROR) {
         printf("shutdown failed: %d\n", WSAGetLastError());

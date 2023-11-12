@@ -9,6 +9,19 @@
 #include <MSWSock.h>
 #include <string>
 
+enum class IOOperation
+{
+	RECV,
+	SEND
+};
+
+struct OverlappedEx
+{
+	WSAOVERLAPPED wsaOverlapped;
+	SOCKET		socket;
+	WSABUF		wsaBuf;
+	IOOperation operation;
+};
 
 class Socket {
 public:
@@ -22,7 +35,9 @@ public:
 		mReadFlag(0)
 	{
 		std::cout << this << "[Info] New Socket Will Created \n";
-		memset(&overlapped, 0, sizeof(WSAOVERLAPPED));
+		memset(&mOverlappedEx, 0, sizeof(WSAOVERLAPPED));
+		mOverlappedEx.wsaBuf.buf = mReceiveBuffer;
+		mOverlappedEx.wsaBuf.len = MaxReceiveLength;
 		if (mWinSockImpl == INVALID_SOCKET) {
 			throw std::runtime_error("INVALID SOCKET");
 		}
@@ -111,11 +126,7 @@ public:
 
 	int OverlappedReceive()
 	{
-		WSABUF b{};
-		b.buf = mReceiveBuffer;
-		b.len = MaxReceiveLength;
-
-		return WSARecv(mWinSockImpl, &b, 1, &lpNumberOfBytesRecvd, &mReadFlag, &overlapped, NULL);
+		return WSARecv(mWinSockImpl, &mOverlappedEx.wsaBuf, 1, &lpNumberOfBytesRecvd, &mReadFlag, (LPOVERLAPPED)&mOverlappedEx, NULL);
 	}
 
 	bool Close() const {
@@ -140,7 +151,7 @@ public:
 
 	void OnReceive() {
 		auto received = std::string{ mReceiveBuffer };
-		std::cout << "onReceive event: " << overlapped.hEvent << "bytes: " << mReceiveBuffer << " readflag : " << mReadFlag << "string : " << received << "\n";
+		std::cout << "onReceive event: " << mOverlappedEx.wsaOverlapped.hEvent << "bytes: " << mReceiveBuffer << " readflag : " << mReadFlag << "string : " << received << "\n";
 		//memset(mReceiveBuffer, 0, MaxReceiveLength);
 	}
 
@@ -151,5 +162,5 @@ private:
 	char mReceiveBuffer[MaxReceiveLength];
 	DWORD mReadFlag;
 	DWORD lpNumberOfBytesRecvd;
-	WSAOVERLAPPED overlapped;
+	OverlappedEx mOverlappedEx;
 };

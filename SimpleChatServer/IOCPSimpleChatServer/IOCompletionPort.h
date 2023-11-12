@@ -4,14 +4,10 @@
 #include "Socket.h"
 #include <unordered_map>
 #include <memory>
+#include <optional>
+
 #define MAX_SOCKBUF 1024	//패킷 크기
 #define MAX_WORKERTHREAD 4  //쓰레드 풀에 넣을 쓰레드 수
-
-enum class IOOperation
-{
-	RECV,
-	SEND
-};
 
 class IOCompletionPort {
 
@@ -36,6 +32,72 @@ public:
 		return !CreateIoCompletionPort((HANDLE)socket.mWinSockImpl, mIOCPHandle, (ULONG_PTR)&socket, 0);
 	}
 
+	std::optional<std::shared_ptr<Socket>> getClient(Socket* const key) {
+		if (clientSockets.find(key) == clientSockets.end())
+			return std::nullopt;
+		return std::optional<std::shared_ptr<Socket>>(clientSockets[key]);
+	}
+
+	void Work(Socket& listenSocket, std::shared_ptr<Socket>& candidatedClientSocket) {
+		OverlappedEx* overlapEx = nullptr;
+		ULONG_PTR completionKey = 0;
+		DWORD numberOfBytes = 0;
+
+		BOOL iResult = GetQueuedCompletionStatus(mIOCPHandle, &numberOfBytes, &completionKey, (LPOVERLAPPED*)&overlapEx, 10000);
+		if (iResult)
+		{
+			Socket* key = (Socket*)completionKey;
+			if (key == &listenSocket)
+			{
+				if (candidatedClientSocket->UpdateAcceptContext(listenSocket))
+				{
+					Add(*candidatedClientSocket);
+
+					if (candidatedClientSocket->OverlappedReceive() != 0
+						&& WSAGetLastError() != ERROR_IO_PENDING)
+					{
+						std::cout << "[Error] overLappedReceive Fail with : " << WSAGetLastError() << "\n";
+						clientSockets.erase(candidatedClientSocket.get());
+					}
+				}
+				else
+				{
+					std::cout << "AcceptedSocket Update Fail with : " << WSAGetLastError() << "\n";
+					clientSockets.erase(candidatedClientSocket.get());
+				}
+				candidatedClientSocket = std::make_shared<Socket>();
+				listenSocket.AcceptEx(*candidatedClientSocket);
+				clientSockets[candidatedClientSocket.get()] = candidatedClientSocket;
+			}
+			else
+			{
+				if (auto clientSocket = getClient(key))
+				{
+					if (numberOfBytes <= 0)
+					{
+						clientSockets.erase(key);
+						std::cout << "socket 종료" << "\n";
+					}
+					else
+					{
+						std::cout << "event 도착: " << numberOfBytes << "\n";
+						(*clientSocket)->OnReceive();
+						(*clientSocket)->OverlappedReceive();
+						std::cout << "mOverlappedEx Test: " << overlapEx->wsaBuf.buf << "\n";
+					}
+				}
+				else {
+
+					std::cout << "[Info] Already closed Socket: " << key << "\n";
+				}
+			}
+		}
+		else
+		{
+			std::cout << "Fail! GetQueuedCompletionStatus\n reason: " << GetLastError() << " + " << WSAGetLastError() << "\n";
+		}
+	}
+
 	bool Start(Socket& listenSocket) {
 		if (Add(listenSocket)) {
 			wprintf(L"[Error] CreateIOCompletionPort on ListenSocket: %u\n", WSAGetLastError());
@@ -48,67 +110,12 @@ public:
 		listenSocket.AcceptEx(*candidatedClientSocket);
 		clientSockets[candidatedClientSocket.get()] = candidatedClientSocket;
 
-		OVERLAPPED_ENTRY x[1024];
-		memset(x, 0, sizeof(OVERLAPPED_ENTRY) * 1024);
+		OVERLAPPED_ENTRY events[1024];
+		memset(events, 0, sizeof(OVERLAPPED_ENTRY) * 1024);
 		ULONG t = 0;
 		while (true) 
 		{
-			BOOL r = GetQueuedCompletionStatusEx(mIOCPHandle, x, 1024, &t, 100000, FALSE);
-			if (!r)
-			{
-				std::cout << "Fail! GetQueuedCompletionStatusEx\n reason: " << GetLastError() << " + " << WSAGetLastError() << "\n";
-			}
-			else {
-				for (int i = 0; i < t; ++i) {
-					auto event = x[i];
-					// Listen소켓 오버랩시 0번으로 초기화 함
-					if (x->lpCompletionKey == (ULONG_PTR)&listenSocket) 
-					{
-						if (candidatedClientSocket->UpdateAcceptContext(listenSocket)) 
-						{
-							Add(*candidatedClientSocket);
-
-							if (candidatedClientSocket->OverlappedReceive() != 0
-								&& WSAGetLastError() != ERROR_IO_PENDING)
-							{
-								std::cout << "[Error] overLappedReceive Fail with : " << WSAGetLastError() << "\n";
-								clientSockets.erase(candidatedClientSocket.get());
-							}
-						}
-						else 
-						{
-							std::cout << "AcceptedSocket Update Fail with : " << WSAGetLastError() << "\n";
-							clientSockets.erase(candidatedClientSocket.get());
-						}
-						candidatedClientSocket = std::make_shared<Socket>();
-						listenSocket.AcceptEx(*candidatedClientSocket);
-						clientSockets[candidatedClientSocket.get()] = candidatedClientSocket;
-					}
-					else 
-					{
-						Socket* key = (Socket*)(x->lpCompletionKey);
-						if (clientSockets.find(key) == clientSockets.end())
-						{
-							std::cout << "[Info] Already closed Socket: " << (Socket*)(x->lpCompletionKey) << "\n";
-						} 
-						else if (event.dwNumberOfBytesTransferred <= 0) 
-						{
-							auto clientSocket = clientSockets[key];
-							clientSockets.erase(key);
-							std::cout << "socket 종료" << "\n";
-						}
-						else 
-						{
-							std::cout << "event 도착: " << event.dwNumberOfBytesTransferred << "\n";
-							auto clientSocket = clientSockets[key];
-							clientSocket->OnReceive();
-							clientSocket->OverlappedReceive();
-						}
-					}
-				}
-				std::cout << "Listen Event count: " << t << "\n";
-			}
-
+			Work(listenSocket, candidatedClientSocket);
 		}
 
 		return true;
