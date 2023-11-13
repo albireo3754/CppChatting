@@ -79,17 +79,15 @@ public:
 		constexpr int outBufLen = 1024;
 		char* lpOutputBuf[outBufLen];
 		DWORD dwBytes = 0;
-		// MARK: olOverlap을 초기화 해주지 않으면 WSAGetLastError() 6번 발생
 		WSAOVERLAPPED olOverlap;
+		// MARK: olOverlap을 초기화 해주지 않으면 WSAGetLastError() 6번 발생
 		memset(&olOverlap, 0, sizeof(olOverlap));
 		BOOL b = mLPAcceptExImpl(mWinSockImpl, socket.mWinSockImpl, lpOutputBuf,
 			outBufLen - ((sizeof(sockaddr_in) + 16) * 2),
 			sizeof(sockaddr_in) + 16, sizeof(sockaddr_in) + 16,
 			&dwBytes, &olOverlap);
 
-		// LPOVERLAPPED* over;
-		// MARK: 997은 accept 시작, io완료 되지 않음 상태
-		if (b == FALSE && WSAGetLastError() != 997)
+		if (b == FALSE && WSAGetLastError() != WSA_IO_PENDING)
 		{
 			std::cout << "[Error] AcceptEx failed with error: " << WSAGetLastError() << "\n";
 			socket.Close();
@@ -129,6 +127,13 @@ public:
 		return WSARecv(mWinSockImpl, &mOverlappedEx.wsaBuf, 1, &lpNumberOfBytesRecvd, &mReadFlag, (LPOVERLAPPED)&mOverlappedEx, NULL);
 	}
 
+	int OverlappedSend()
+	{
+		// TODO: - Overlapped Send를 사용하는 방법과, Output용 Overlapped를 분리할 필요가 있음
+		//return WSASend(mWinSockImpl, )
+		return 0;
+	}
+
 	bool Close() const {
 		return closesocket(mWinSockImpl) == 0;
 	}
@@ -151,8 +156,7 @@ public:
 
 	void OnReceive() {
 		auto received = std::string{ mReceiveBuffer };
-		std::cout << "onReceive event: " << mOverlappedEx.wsaOverlapped.hEvent << "bytes: " << mReceiveBuffer << " readflag : " << mReadFlag << "string : " << received << "\n";
-		//memset(mReceiveBuffer, 0, MaxReceiveLength);
+		// std::cout << "onReceive event: " << mOverlappedEx.wsaOverlapped.hEvent << "bytes: " << mReceiveBuffer << " readflag : " << mReadFlag << "string : " << received << "\n";
 	}
 
 	SOCKET mWinSockImpl;

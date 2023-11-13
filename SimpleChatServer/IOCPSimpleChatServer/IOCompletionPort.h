@@ -4,6 +4,7 @@
 #include "Socket.h"
 #include <unordered_map>
 #include <memory>
+#include <string>
 #include <optional>
 
 #define MAX_SOCKBUF 1024	//패킷 크기
@@ -19,7 +20,7 @@ public:
 	{
 		if (mIOCPHandle == NULL)
 		{
-			std::cout << "[Error] Fail CreateIOCompoletionPort() reason: " << GetLastError() << "\n";
+			logError("Initial CreateIOCompoletionPort");
 			throw std::runtime_error("CreateIOCompletionPort Fail");
 		}
 	}
@@ -32,75 +33,65 @@ public:
 		return !CreateIoCompletionPort((HANDLE)socket.mWinSockImpl, mIOCPHandle, (ULONG_PTR)&socket, 0);
 	}
 
-	std::optional<std::shared_ptr<Socket>> getClient(Socket* const key) {
-		if (clientSockets.find(key) == clientSockets.end())
-			return std::nullopt;
-		return std::optional<std::shared_ptr<Socket>>(clientSockets[key]);
-	}
-
 	void Work(Socket& listenSocket, std::shared_ptr<Socket>& candidatedClientSocket) {
 		OverlappedEx* overlapEx = nullptr;
 		ULONG_PTR completionKey = 0;
 		DWORD numberOfBytes = 0;
 
-		BOOL iResult = GetQueuedCompletionStatus(mIOCPHandle, &numberOfBytes, &completionKey, (LPOVERLAPPED*)&overlapEx, 10000);
-		if (iResult)
+		if (!GetQueuedCompletionStatus(mIOCPHandle, &numberOfBytes, &completionKey, (LPOVERLAPPED*)&overlapEx, 10000))
 		{
-			Socket* key = (Socket*)completionKey;
-			if (key == &listenSocket)
+			logError("GetQueuedCompletionStatus");
+			return;
+		}
+		Socket* key = (Socket*)completionKey;
+		if (key == &listenSocket)
+		{
+			if (candidatedClientSocket->UpdateAcceptContext(listenSocket))
 			{
-				if (candidatedClientSocket->UpdateAcceptContext(listenSocket))
-				{
-					Add(*candidatedClientSocket);
+				Add(*candidatedClientSocket);
 
-					if (candidatedClientSocket->OverlappedReceive() != 0
-						&& WSAGetLastError() != ERROR_IO_PENDING)
-					{
-						std::cout << "[Error] overLappedReceive Fail with : " << WSAGetLastError() << "\n";
-						clientSockets.erase(candidatedClientSocket.get());
-					}
-				}
-				else
+				if (candidatedClientSocket->OverlappedReceive() != 0
+					&& WSAGetLastError() != ERROR_IO_PENDING)
 				{
-					std::cout << "AcceptedSocket Update Fail with : " << WSAGetLastError() << "\n";
+					logError("OverlappedReceive");
 					clientSockets.erase(candidatedClientSocket.get());
 				}
-				candidatedClientSocket = std::make_shared<Socket>();
-				listenSocket.AcceptEx(*candidatedClientSocket);
-				clientSockets[candidatedClientSocket.get()] = candidatedClientSocket;
 			}
 			else
 			{
-				if (auto clientSocket = getClient(key))
-				{
-					if (numberOfBytes <= 0)
-					{
-						clientSockets.erase(key);
-						std::cout << "socket 종료" << "\n";
-					}
-					else
-					{
-						std::cout << "event 도착: " << numberOfBytes << "\n";
-						(*clientSocket)->OnReceive();
-						(*clientSocket)->OverlappedReceive();
-						std::cout << "mOverlappedEx Test: " << overlapEx->wsaBuf.buf << "\n";
-					}
-				}
-				else {
-
-					std::cout << "[Info] Already closed Socket: " << key << "\n";
-				}
+				logError("UpdateAcceptContext");
+				clientSockets.erase(candidatedClientSocket.get());
 			}
+			candidatedClientSocket = std::make_shared<Socket>();
+			listenSocket.AcceptEx(*candidatedClientSocket);
+			clientSockets[candidatedClientSocket.get()] = candidatedClientSocket;
 		}
 		else
 		{
-			std::cout << "Fail! GetQueuedCompletionStatus\n reason: " << GetLastError() << " + " << WSAGetLastError() << "\n";
+			if (auto clientSocket = getClient(key))
+			{
+				if (numberOfBytes <= 0)
+				{
+					clientSockets.erase(key);
+					std::cout << "socket 종료" << "\n";
+				}
+				else
+				{
+					//std::cout << "event 도착: " << numberOfBytes << "\n";
+					//std::cout << "mOverlappedEx Test: " << overlapEx->wsaBuf.buf << "\n";
+					(*clientSocket)->OnReceive();
+					(*clientSocket)->OverlappedReceive();
+				}
+			}
+			else {
+				std::cout << "[Info] Already closed Socket: " << key << "\n";
+			}
 		}
 	}
 
 	bool Start(Socket& listenSocket) {
 		if (Add(listenSocket)) {
-			wprintf(L"[Error] CreateIOCompletionPort on ListenSocket: %u\n", WSAGetLastError());
+			logError("CreateIOCompletionPort on ListenSocket");
 			WSACleanup();
 			return false;
 		}
@@ -123,6 +114,17 @@ public:
 private:
 	HANDLE mIOCPHandle;
 	std::unordered_map<Socket*, std::shared_ptr<Socket>> clientSockets;
+	
+	std::optional<std::shared_ptr<Socket>> getClient(Socket* const key) {
+		if (clientSockets.find(key) == clientSockets.end())
+			return std::nullopt;
+		return std::optional<std::shared_ptr<Socket>>(clientSockets[key]);
+	}
+
+	void logError(const std::string& name)
+	{
+		std::cout << "[Error] " << name << " Fail with : " << WSAGetLastError() << "\n";
+	}
 };
 
 
