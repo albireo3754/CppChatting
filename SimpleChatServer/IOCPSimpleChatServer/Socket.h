@@ -18,26 +18,29 @@ enum class IOOperation
 struct OverlappedEx
 {
 	WSAOVERLAPPED wsaOverlapped;
-	SOCKET		socket;
 	WSABUF		wsaBuf;
 	IOOperation operation;
 };
 
 class Socket {
 public:
-	static constexpr int MaxReceiveLength = 1024;
+	static constexpr int MaxBufLength = 1024;
 
 	Socket() :
 		mWinSockImpl(WSASocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, NULL, WSA_FLAG_OVERLAPPED)),
 		mLPAcceptExImpl(nullptr),
 		dwBytes(0),
-		mReceiveBuffer(""),
 		mReadFlag(0)
 	{
 		std::cout << this << "[Info] New Socket Will Created \n";
-		memset(&mOverlappedEx, 0, sizeof(WSAOVERLAPPED));
-		mOverlappedEx.wsaBuf.buf = mReceiveBuffer;
-		mOverlappedEx.wsaBuf.len = MaxReceiveLength;
+		memset(&mReceivedOverlappedEx, 0, sizeof(WSAOVERLAPPED));
+		mReceivedOverlappedEx.wsaBuf.len = MaxBufLength;
+		mReceivedOverlappedEx.wsaBuf.buf = (char*)malloc(1024);
+
+		memset(&mSendOverlappedEx, 0, sizeof(WSAOVERLAPPED));
+		mSendOverlappedEx.wsaBuf.len = MaxBufLength;
+		mSendOverlappedEx.wsaBuf.buf = (char*)malloc(1024);
+
 		if (mWinSockImpl == INVALID_SOCKET) {
 			throw std::runtime_error("INVALID SOCKET");
 		}
@@ -52,6 +55,8 @@ public:
 		{
 			std::cout << this << "[Error] Socket Did Not Closed with: " << WSAGetLastError() << "\n";
 		}
+		free(mReceivedOverlappedEx.wsaBuf.buf);
+		free(mSendOverlappedEx.wsaBuf.buf);
 	}
 
 	bool Listen() {
@@ -73,16 +78,16 @@ public:
 	}
 
 	bool AcceptEx(const Socket& socket) {
-		if (mLPAcceptExImpl == nullptr) {
-			return false;
-		}
+
 		constexpr int outBufLen = 1024;
-		char* lpOutputBuf[outBufLen];
+		if (acceptBuf == nullptr) {
+			acceptBuf = (char*)malloc(outBufLen * sizeof(char));
+		}
 		DWORD dwBytes = 0;
 		WSAOVERLAPPED olOverlap;
 		// MARK: olOverlap을 초기화 해주지 않으면 WSAGetLastError() 6번 발생
 		memset(&olOverlap, 0, sizeof(olOverlap));
-		BOOL b = mLPAcceptExImpl(mWinSockImpl, socket.mWinSockImpl, lpOutputBuf,
+		BOOL b = mLPAcceptExImpl(mWinSockImpl, socket.mWinSockImpl, acceptBuf,
 			outBufLen - ((sizeof(sockaddr_in) + 16) * 2),
 			sizeof(sockaddr_in) + 16, sizeof(sockaddr_in) + 16,
 			&dwBytes, &olOverlap);
@@ -124,14 +129,14 @@ public:
 
 	int OverlappedReceive()
 	{
-		return WSARecv(mWinSockImpl, &mOverlappedEx.wsaBuf, 1, &lpNumberOfBytesRecvd, &mReadFlag, (LPOVERLAPPED)&mOverlappedEx, NULL);
+		return WSARecv(mWinSockImpl, &mReceivedOverlappedEx.wsaBuf, 1, &lpNumberOfBytesRecvd, &mReadFlag, (LPOVERLAPPED)&mReceivedOverlappedEx, NULL);
 	}
 
 	int OverlappedSend()
 	{
+		DWORD* send = nullptr;
 		// TODO: - Overlapped Send를 사용하는 방법과, Output용 Overlapped를 분리할 필요가 있음
-		//return WSASend(mWinSockImpl, )
-		return 0;
+		return WSASend(mWinSockImpl, &mSendOverlappedEx.wsaBuf, 1, send, mReadFlag, (LPOVERLAPPED)&mSendOverlappedEx, NULL);
 	}
 
 	bool Close() const {
@@ -154,17 +159,19 @@ public:
 		return true;
 	}
 
-	void OnReceive() {
-		auto received = std::string{ mReceiveBuffer };
-		// std::cout << "onReceive event: " << mOverlappedEx.wsaOverlapped.hEvent << "bytes: " << mReceiveBuffer << " readflag : " << mReadFlag << "string : " << received << "\n";
+	void OnReceive(int length) {
+		 std::cout << "onReceive event: " << std::string(mReceivedOverlappedEx.wsaBuf.buf, length) << "bytes: " << " readflag : " << mReadFlag << "\n";
+		 mSendOverlappedEx.wsaBuf.buf[0] = 't';
+		 OverlappedSend();
 	}
 
 	SOCKET mWinSockImpl;
 private:
 	LPFN_ACCEPTEX mLPAcceptExImpl;
 	DWORD dwBytes;
-	char mReceiveBuffer[MaxReceiveLength];
 	DWORD mReadFlag;
 	DWORD lpNumberOfBytesRecvd;
-	OverlappedEx mOverlappedEx;
+	char* acceptBuf;
+	OverlappedEx mReceivedOverlappedEx;
+	OverlappedEx mSendOverlappedEx;
 };

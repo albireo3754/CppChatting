@@ -32,7 +32,8 @@ int main(int argc, char ** argv)
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_protocol = IPPROTO_TCP;
 
-    #define DEFAULT_PORT "27015"
+    //#define DEFAULT_PORT "27015"
+    #define DEFAULT_PORT "5555"
     SOCKET connectSocket = INVALID_SOCKET;
     
     // Resolve the server address and port
@@ -67,24 +68,28 @@ int main(int argc, char ** argv)
 
     constexpr int recvbuflen = 512;
     int count = 0;
-    char sendbuf[512] = "this is a test\n";
+    char sendbuf[512] = "zzzzthis is a test\n";
     char recvbuf[recvbuflen];
-    
-    while (count < 10) {
+    //std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+    while (count < 10) 
+    {
         count++;
         sendbuf[count] = 'k';
         iResult = send(connectSocket, sendbuf, (int)strlen(sendbuf), 0);
-    if (iResult == SOCKET_ERROR) {
-        std::cout << "send failed" << WSAGetLastError() << std::endl;
-        closesocket(connectSocket);
-        freeaddrinfo(result);
-        WSACleanup();
-        return 1;
+        if (iResult == SOCKET_ERROR) {
+            std::cout << "send failed" << WSAGetLastError() << std::endl;
+            closesocket(connectSocket);
+            freeaddrinfo(result);
+            WSACleanup();
+            return 1;
+        }
+        else 
+        {
+            std::cout << "send success\n";
+            std::cout << std::string(sendbuf, 70) << "success\n";
+        }
     }
-    else {
-        std::cout << "send success\n";
-       }
-    }
+
     iResult = shutdown(connectSocket, SD_SEND);
     if (iResult == SOCKET_ERROR) {
         printf("shutdown failed: %d\n", WSAGetLastError());

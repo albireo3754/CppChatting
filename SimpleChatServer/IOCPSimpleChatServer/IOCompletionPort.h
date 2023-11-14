@@ -14,7 +14,7 @@ class IOCompletionPort {
 
 public:
 	IOCompletionPort() :
-		mIOCPHandle(CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, NULL, 1))
+		mIOCPHandle(CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, NULL, 4))
 		// MARK: - 이러면 복사 생성자가?
 		// mListenSocket(Socket{})
 	{
@@ -49,7 +49,6 @@ public:
 			if (candidatedClientSocket->UpdateAcceptContext(listenSocket))
 			{
 				Add(*candidatedClientSocket);
-
 				if (candidatedClientSocket->OverlappedReceive() != 0
 					&& WSAGetLastError() != ERROR_IO_PENDING)
 				{
@@ -79,11 +78,12 @@ public:
 				{
 					//std::cout << "event 도착: " << numberOfBytes << "\n";
 					//std::cout << "mOverlappedEx Test: " << overlapEx->wsaBuf.buf << "\n";
-					(*clientSocket)->OnReceive();
+					(*clientSocket)->OnReceive(numberOfBytes);
 					(*clientSocket)->OverlappedReceive();
 				}
 			}
-			else {
+			else 
+			{
 				std::cout << "[Info] Already closed Socket: " << key << "\n";
 			}
 		}
