@@ -212,9 +212,11 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="Socket.cpp" />
+    <ClCompile Include="IOCPNetwork.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="IOCompletionPort.h" />
+    <ClInclude Include="IOCPNetwork.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="Socket.h" />
   </ItemGroup>

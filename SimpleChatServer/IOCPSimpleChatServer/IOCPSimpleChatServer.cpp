@@ -1,12 +1,17 @@
 ﻿// IOCPSimpleChatServer.cpp : 이 파일에는 'main' 함수가 포함됩니다. 거기서 프로그램 실행이 시작되고 종료됩니다.
 // https://learn.microsoft.com/ko-kr/windows/win32/winsock/windows-sockets-error-codes-2 에러 목록
 
-#include "pch.h"
-#include "IOCompletionPort.h"
 #include <iostream>
 #include <memory>
 
+#include "pch.h"
+#include "IOCPNetwork.h"
+
 const uint16_t SERVER_PORT = 27015;
+
+class EchoServer : public IOCPNetwork {
+
+};
 
 int main()
 {
@@ -17,12 +22,8 @@ int main()
             throw std::runtime_error{ "WSAStartup Fail" };
         }
         IOCompletionPort ioCompletionPort{};
-        Socket listenSocket{};
-        listenSocket.Bind(SERVER_PORT);
-        if (listenSocket.Listen()) {
-            return 1;
-        }
-        ioCompletionPort.Start(listenSocket);
+        ioCompletionPort.BindAndListen(SERVER_PORT);
+        ioCompletionPort.Start();
     }
     catch (std::runtime_error exp) {
         std::cout << "[Error] Server error!" << exp.what() << "\n";

@@ -41,6 +41,8 @@ public:
 		mSendOverlappedEx.wsaBuf.len = MaxBufLength;
 		mSendOverlappedEx.wsaBuf.buf = (char*)malloc(1024);
 
+		acceptBuf = (char*)malloc(1024);
+
 		if (mWinSockImpl == INVALID_SOCKET) {
 			throw std::runtime_error("INVALID SOCKET");
 		}
@@ -57,6 +59,8 @@ public:
 		}
 		free(mReceivedOverlappedEx.wsaBuf.buf);
 		free(mSendOverlappedEx.wsaBuf.buf);
+		// TODO: accept Overlapped중일땐 소켓을 끊으면 곤란
+		free(acceptBuf);
 	}
 
 	bool Listen() {
@@ -69,30 +73,29 @@ public:
 		return WSAIoctl(mWinSockImpl,
 			SIO_GET_EXTENSION_FUNCTION_POINTER,
 			&GuidAcceptEx,
-			sizeof(GuidAcceptEx),
+			sizeof(GUID),
 			&mLPAcceptExImpl,
 			sizeof(mLPAcceptExImpl),
 			&dwBytes,
 			NULL,
-			NULL);
+			NULL) == 0;
 	}
 
 	bool AcceptEx(const Socket& socket) {
-
-		constexpr int outBufLen = 1024;
-		if (acceptBuf == nullptr) {
-			acceptBuf = (char*)malloc(outBufLen * sizeof(char));
-		}
-		DWORD dwBytes = 0;
 		WSAOVERLAPPED olOverlap;
 		// MARK: olOverlap을 초기화 해주지 않으면 WSAGetLastError() 6번 발생
 		memset(&olOverlap, 0, sizeof(olOverlap));
-		BOOL b = mLPAcceptExImpl(mWinSockImpl, socket.mWinSockImpl, acceptBuf,
-			outBufLen - ((sizeof(sockaddr_in) + 16) * 2),
+		BOOL acceptResult = mLPAcceptExImpl(
+			mWinSockImpl, 
+			socket.mWinSockImpl, 
+			acceptBuf,
+			// accept전용 buff size, 0으로 초기화 하면 accept 즉시 반환
+			0,
 			sizeof(sockaddr_in) + 16, sizeof(sockaddr_in) + 16,
-			&dwBytes, &olOverlap);
-
-		if (b == FALSE && WSAGetLastError() != WSA_IO_PENDING)
+			nullptr,
+			&olOverlap
+		);
+		if (acceptResult == FALSE && WSAGetLastError() != WSA_IO_PENDING)
 		{
 			std::cout << "[Error] AcceptEx failed with error: " << WSAGetLastError() << "\n";
 			socket.Close();
@@ -135,7 +138,6 @@ public:
 	int OverlappedSend()
 	{
 		DWORD* send = nullptr;
-		// TODO: - Overlapped Send를 사용하는 방법과, Output용 Overlapped를 분리할 필요가 있음
 		return WSASend(mWinSockImpl, &mSendOverlappedEx.wsaBuf, 1, send, mReadFlag, (LPOVERLAPPED)&mSendOverlappedEx, NULL);
 	}
 
@@ -160,8 +162,8 @@ public:
 	}
 
 	void OnReceive(int length) {
-		 std::cout << "onReceive event: " << std::string(mReceivedOverlappedEx.wsaBuf.buf, length) << "bytes: " << " readflag : " << mReadFlag << "\n";
-		 mSendOverlappedEx.wsaBuf.buf[0] = 't';
+		 std::cout << "onReceive event: " << std::string(mReceivedOverlappedEx.wsaBuf.buf, length) << "\nbytes: " << length << " readflag : " << mReadFlag << "\n";
+		 mSendOverlappedEx.wsaBuf.buf = (CHAR *)std::string(mReceivedOverlappedEx.wsaBuf.buf, length).c_str();
 		 OverlappedSend();
 	}
 
