@@ -9,8 +9,12 @@
 
 const uint16_t SERVER_PORT = 27015;
 
-class EchoServer : public IOCPNetwork {
-
+class EchoServer : public IOCompletionPort {
+    
+public:
+    void virtual OnReceive(const SocketKey key, const char const* buffer, const int bufferLen) {
+        std::cout << std::string(buffer, bufferLen) << "\n";
+    }
 };
 
 int main()
@@ -21,9 +25,9 @@ int main()
         if (nResult) {
             throw std::runtime_error{ "WSAStartup Fail" };
         }
-        IOCompletionPort ioCompletionPort{};
-        ioCompletionPort.BindAndListen(SERVER_PORT);
-        ioCompletionPort.Start();
+        EchoServer server{};
+        server.BindAndListen(SERVER_PORT);
+        server.Start();
     }
     catch (std::runtime_error exp) {
         std::cout << "[Error] Server error!" << exp.what() << "\n";

@@ -124,7 +124,6 @@ public:
 			(sockaddr**)&lpRemoteSockaddr,
 			&lpRemoteSockaddrlen
 		);
-		std::cout << "buf µµÂø : " << buf << "\n";
 
 		return setsockopt(mWinSockImpl, SOL_SOCKET, SO_UPDATE_ACCEPT_CONTEXT,
 			(char*)&listenSocket.mWinSockImpl, sizeof(listenSocket.mWinSockImpl)) == 0;
@@ -135,10 +134,12 @@ public:
 		return WSARecv(mWinSockImpl, &mReceivedOverlappedEx.wsaBuf, 1, &lpNumberOfBytesRecvd, &mReadFlag, (LPOVERLAPPED)&mReceivedOverlappedEx, NULL);
 	}
 
-	int OverlappedSend()
+	bool OverlappedSend(char* buffer, int numberOfBytes)
 	{
+		mSendOverlappedEx.wsaBuf.buf = buffer;
+		mSendOverlappedEx.wsaBuf.len = numberOfBytes;
 		DWORD* send = nullptr;
-		return WSASend(mWinSockImpl, &mSendOverlappedEx.wsaBuf, 1, send, mReadFlag, (LPOVERLAPPED)&mSendOverlappedEx, NULL);
+		return WSASend(mWinSockImpl, &mSendOverlappedEx.wsaBuf, 1, send, mReadFlag, (LPOVERLAPPED)&mSendOverlappedEx, NULL) == 0 || WSAGetLastError() != ERROR_IO_PENDING;
 	}
 
 	bool Close() const {
@@ -161,10 +162,11 @@ public:
 		return true;
 	}
 
-	void OnReceive(int length) {
-		 std::cout << "onReceive event: " << std::string(mReceivedOverlappedEx.wsaBuf.buf, length) << "\nbytes: " << length << " readflag : " << mReadFlag << "\n";
-		 mSendOverlappedEx.wsaBuf.buf = (CHAR *)std::string(mReceivedOverlappedEx.wsaBuf.buf, length).c_str();
-		 OverlappedSend();
+	char* OnReceive(int length) {
+		 //std::cout << "onReceive event: " << std::string(mReceivedOverlappedEx.wsaBuf.buf, length) << "\nbytes: " << length << " readflag : " << mReadFlag << "\n";
+		 //mSendOverlappedEx.wsaBuf.buf = (CHAR *)std::string(mReceivedOverlappedEx.wsaBuf.buf, length).c_str();
+		 //OverlappedSend();
+		 return mReceivedOverlappedEx.wsaBuf.buf;
 	}
 
 	SOCKET mWinSockImpl;

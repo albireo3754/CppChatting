@@ -1,12 +1,7 @@
-#define BOOST_TEST_MODULE mytests
-#include <boost/test/included/unit_test.hpp>
-#include <unordered_map>
-#include <iostream>
-#include <algorithm>
+#include "UnOrderedMapStudyTests.h"
 
 using namespace std;
 
-unordered_map<int, int> m{};
 BOOST_AUTO_TEST_CASE(unorderd_map_subscript_increase_size)
 {
 	using namespace std;
@@ -41,4 +36,26 @@ BOOST_AUTO_TEST_CASE(unorderd_map_find_not_increase_size)
 		BOOST_TEST(false);
 	}
 	BOOST_TEST(m.size() == 2);
+}
+
+BOOST_AUTO_TEST_CASE(option_auto_condition_Check_Unwrap)
+{
+	using namespace std;
+	optional<int> op1 = 3;
+	optional<int> op2 = nullopt;
+
+	if (auto op3 = op1) {
+		BOOST_TEST(op1.value(), 3);
+	}
+
+	if (auto op3 = op2) {
+		BOOST_TEST(false);
+	}
+	else {
+		BOOST_TEST(true);
+	}
+
+	if (op2.has_value()) {
+		BOOST_TEST(false);
+	}
 }

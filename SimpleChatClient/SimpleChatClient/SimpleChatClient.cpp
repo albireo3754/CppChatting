@@ -32,8 +32,8 @@ int main(int argc, char ** argv)
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_protocol = IPPROTO_TCP;
 
-    //#define DEFAULT_PORT "27015"
-    #define DEFAULT_PORT "5555"
+    #define DEFAULT_PORT "27015"
+    //#define DEFAULT_PORT "5555"
     SOCKET connectSocket = INVALID_SOCKET;
     
     // Resolve the server address and port
@@ -58,7 +58,7 @@ int main(int argc, char ** argv)
 
     iResult = connect(connectSocket, ptr->ai_addr, (int)ptr->ai_addrlen);
     if (iResult == SOCKET_ERROR) {
-        std::cout << "Unable to connect to server!\n";
+        std::cout << "Unable to connect to server! with: " << WSAGetLastError() << "\n";
         closesocket(connectSocket);
         connectSocket = INVALID_SOCKET;
         freeaddrinfo(result);

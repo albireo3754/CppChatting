@@ -10,6 +10,15 @@
 #define MAX_SOCKBUF 1024	//패킷 크기
 #define MAX_WORKERTHREAD 4  //쓰레드 풀에 넣을 쓰레드 수
 
+enum class NetworkEvent {
+	OnReceive,
+	OnAccept,
+	OnSend,
+	OnClose
+};
+
+typedef ULONG_PTR SocketKey;
+
 class IOCompletionPort {
 
 public:
@@ -24,11 +33,34 @@ public:
 			logError("Initial CreateIOCompoletionPort");
 			throw std::runtime_error("CreateIOCompletionPort Fail");
 		}
+		else {
+			std::cout << "Success CreateIOCompletionPort\n";
+		}
 	}
 
 	~IOCompletionPort() {}
 
-	bool InitSocket() {}
+	void virtual OnConnect(const SocketKey key) {}
+	void virtual OnReceive(const SocketKey key, const char const* buffer, const int numberOfBytes) {}
+	void virtual OnClose(const SocketKey key) {}
+
+	bool Send(const SocketKey key, const char const* buffer, const int numberOfBytes) {
+		if (auto clientSocket = getClient(key))
+		{
+			if (numberOfBytes <= 0)
+			{
+				return false;
+			}
+			else
+			{
+				// TODO: - buf를 언제 초기화 시켜줘도되는거지?
+				char* buf = new char();
+				memcpy(buf, buffer, numberOfBytes);
+				return (*clientSocket)->OverlappedSend(buf, numberOfBytes);
+			}
+		}
+		return false;
+	}
 
 	bool BindAndListen(int port) {
 		if (!mListenSocket->Bind(port) || !mListenSocket->Listen()) {
@@ -50,48 +82,51 @@ public:
 			logError("GetQueuedCompletionStatus");
 			return;
 		}
-		Socket* key = (Socket*)completionKey;
-		if (key == mListenSocket.get())
+		// TODO: - 이게 옳바른 패턴인지 확인 필요
+		// TODO: 여기서 무부를 하니깐 포인터가 null로 초기화 ㅋㅋ
+		if (completionKey == makeSocketKey(mListenSocket))
 		{
 			if (candidatedClientSocket->UpdateAcceptContext(*mListenSocket))
 			{
 				Add(*candidatedClientSocket);
+				OnConnect(makeSocketKey(candidatedClientSocket));
 				if (candidatedClientSocket->OverlappedReceive() != 0
 					&& WSAGetLastError() != ERROR_IO_PENDING)
 				{
 					logError("OverlappedReceive");
-					clientSockets.erase(candidatedClientSocket.get());
+					clientSockets.erase(makeSocketKey(candidatedClientSocket));
 				}
 			}
 			else
 			{
 				logError("UpdateAcceptContext");
-				clientSockets.erase(candidatedClientSocket.get());
+				clientSockets.erase(makeSocketKey(candidatedClientSocket));
 			}
 			candidatedClientSocket = std::make_shared<Socket>();
 			mListenSocket->AcceptEx(*candidatedClientSocket);
-			clientSockets[candidatedClientSocket.get()] = candidatedClientSocket;
+			clientSockets[completionKey] = candidatedClientSocket;
 		}
 		else
 		{
-			if (auto clientSocket = getClient(key))
+			// MARK: - optional이긴하지만 값을 못찾을 경우 어떻게 될지 확인을 해야함
+			if (auto clientSocket = getClient(completionKey))
 			{
 				if (numberOfBytes <= 0)
 				{
-					clientSockets.erase(key);
+					OnClose(completionKey);
+					clientSockets.erase(completionKey);
 					std::cout << "socket 종료" << "\n";
 				}
 				else
 				{
-					//std::cout << "event 도착: " << numberOfBytes << "\n";
-					//std::cout << "mOverlappedEx Test: " << overlapEx->wsaBuf.buf << "\n";
-					(*clientSocket)->OnReceive(numberOfBytes);
+					char* buffer = (*clientSocket)->OnReceive(numberOfBytes);
+					OnReceive(completionKey, buffer, numberOfBytes);
 					(*clientSocket)->OverlappedReceive();
 				}
 			}
 			else 
 			{
-				std::cout << "[Info] Already closed Socket: " << key << "\n";
+				std::cout << "[Info] Already closed Socket: " << candidatedClientSocket << "\n";
 			}
 		}
 	}
@@ -109,7 +144,7 @@ public:
 		{
 			logError("AcceptEx");
 		}
-		clientSockets[candidatedClientSocket.get()] = candidatedClientSocket;
+		clientSockets[makeSocketKey(candidatedClientSocket)] = candidatedClientSocket;
 
 		OVERLAPPED_ENTRY events[1024];
 		memset(events, 0, sizeof(OVERLAPPED_ENTRY) * 1024);
@@ -122,29 +157,12 @@ public:
 		return true;
 	}
 
-	//// TODO: Event헨들러처리하기
-	//// 이런식으로 이벤트를 추상화해서 가상함수에다가 찔러주면 이 객체를 상속받고 있는 객체는 오버라이드만 해주면 됨
-	//// 에코서버에서는 onReceived를 보고 해당클라이언트에다가 리시브 반환을 해주면 되는거고
-	//// IF 세션이 끊길때 Overlapped Send중이였다면 sendBuffer를 초기화 시키지 않는 것이 중요함. 일단 보내고 그다음에 Socket을 destruct해야함.
-	//void PostEvent(IOCompetionPortEvent) {
-	//	switch event {
-	//	case onReceive:
-	//		postOnReceive();
-	//		default;
-	//	case onAccept:
-	//		postNewSession(Accept);
-	//	case onClose:
-	//		postOnClose();
-	//	case onReceived:
-	//		messageDidReceived();
-	//	}
-	//}
 private:
 	HANDLE mIOCPHandle;
 	std::unique_ptr<Socket> mListenSocket;
-	std::unordered_map<Socket*, std::shared_ptr<Socket>> clientSockets;
+	std::unordered_map<SocketKey, std::shared_ptr<Socket>> clientSockets;
 	
-	std::optional<std::shared_ptr<Socket>> getClient(Socket* const key) {
+	std::optional<std::shared_ptr<Socket>> getClient(const SocketKey& key) {
 		if (clientSockets.find(key) == clientSockets.end())
 			return std::nullopt;
 		return std::optional<std::shared_ptr<Socket>>(clientSockets[key]);
@@ -153,6 +171,14 @@ private:
 	void logError(const std::string& name)
 	{
 		std::cout << "[Error] " << name << " Fail with : " << WSAGetLastError() << "\n";
+	}
+
+	SocketKey makeSocketKey(const std::shared_ptr<Socket>& socket) {
+		return (ULONG_PTR)socket.get();
+	}
+
+	SocketKey makeSocketKey(const std::unique_ptr<Socket>& socket) {
+		return (ULONG_PTR)socket.get();
 	}
 };
 
