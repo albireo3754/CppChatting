@@ -36,10 +36,12 @@ public:
 		memset(&mReceivedOverlappedEx, 0, sizeof(WSAOVERLAPPED));
 		mReceivedOverlappedEx.wsaBuf.len = MaxBufLength;
 		mReceivedOverlappedEx.wsaBuf.buf = (char*)malloc(1024);
+		mReceivedOverlappedEx.operation = IOOperation::RECV;
 
 		memset(&mSendOverlappedEx, 0, sizeof(WSAOVERLAPPED));
 		mSendOverlappedEx.wsaBuf.len = MaxBufLength;
 		mSendOverlappedEx.wsaBuf.buf = (char*)malloc(1024);
+		mSendOverlappedEx.operation = IOOperation::SEND;
 
 		acceptBuf = (char*)malloc(1024);
 

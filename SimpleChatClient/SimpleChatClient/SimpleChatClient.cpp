@@ -57,6 +57,7 @@ int main(int argc, char ** argv)
     }
 
     iResult = connect(connectSocket, ptr->ai_addr, (int)ptr->ai_addrlen);
+    std::cout << "connect completed\n";
     if (iResult == SOCKET_ERROR) {
         std::cout << "Unable to connect to server! with: " << WSAGetLastError() << "\n";
         closesocket(connectSocket);
@@ -68,13 +69,14 @@ int main(int argc, char ** argv)
 
     constexpr int recvbuflen = 512;
     int count = 0;
-    char sendbuf[512] = "zzzzthis is a test\n";
+    char sendbuf[512] = "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged.\n";
     char recvbuf[recvbuflen];
     //std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+    //std::cout << std::this_thread::get_id() << "\n";
     while (count < 10) 
     {
         count++;
-        sendbuf[count] = 'k';
+        sendbuf[count] = '1';
         iResult = send(connectSocket, sendbuf, (int)strlen(sendbuf), 0);
         if (iResult == SOCKET_ERROR) {
             std::cout << "send failed" << WSAGetLastError() << std::endl;
@@ -85,8 +87,9 @@ int main(int argc, char ** argv)
         }
         else 
         {
-            std::cout << "send success\n";
-            std::cout << std::string(sendbuf, 70) << "success\n";
+            iResult = recv(connectSocket, recvbuf, recvbuflen, 0);
+            std::cout << "recv success\n";
+            std::cout << std::string(recvbuf, recvbuflen) << "success\n";
         }
     }
 

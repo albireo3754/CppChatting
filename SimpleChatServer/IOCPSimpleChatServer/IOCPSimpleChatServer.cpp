@@ -1,11 +1,10 @@
 ﻿// IOCPSimpleChatServer.cpp : 이 파일에는 'main' 함수가 포함됩니다. 거기서 프로그램 실행이 시작되고 종료됩니다.
 // https://learn.microsoft.com/ko-kr/windows/win32/winsock/windows-sockets-error-codes-2 에러 목록
 
-#include <iostream>
-#include <memory>
+#pragma once
 
 #include "pch.h"
-#include "IOCPNetwork.h"
+#include "IOCPSimpleChatServer.h"
 
 const uint16_t SERVER_PORT = 27015;
 
@@ -13,7 +12,11 @@ class EchoServer : public IOCompletionPort {
     
 public:
     void virtual OnReceive(const SocketKey key, const char const* buffer, const int bufferLen) {
-        std::cout << std::string(buffer, bufferLen) << "\n";
+
+        std::cout << "OnReceive key: " << key << "thread: " << std::this_thread::get_id() << "message: " << std::string(buffer, bufferLen) << "\n";
+        //std::cout << "OnReceive key " << std::string(buffer, bufferLen) << "\n";
+        
+        Send(key, buffer, bufferLen);
     }
 };
 

@@ -6,6 +6,7 @@
 #include <memory>
 #include <string>
 #include <optional>
+#include <queue>
 
 #define MAX_SOCKBUF 1024	//패킷 크기
 #define MAX_WORKERTHREAD 4  //쓰레드 풀에 넣을 쓰레드 수
@@ -15,6 +16,12 @@ enum class NetworkEvent {
 	OnAccept,
 	OnSend,
 	OnClose
+};
+
+struct SendTask {
+	SocketKey key;
+	std::unique_ptr<char> buffer;
+	int bufferLen;
 };
 
 typedef ULONG_PTR SocketKey;
@@ -54,7 +61,7 @@ public:
 			else
 			{
 				// TODO: - buf를 언제 초기화 시켜줘도되는거지?
-				char* buf = new char();
+				char* buf = new char[numberOfBytes];
 				memcpy(buf, buffer, numberOfBytes);
 				return (*clientSocket)->OverlappedSend(buf, numberOfBytes);
 			}
@@ -76,14 +83,13 @@ public:
 		OverlappedEx* overlapEx = nullptr;
 		ULONG_PTR completionKey = 0;
 		DWORD numberOfBytes = 0;
-
-		if (!GetQueuedCompletionStatus(mIOCPHandle, &numberOfBytes, &completionKey, (LPOVERLAPPED*)&overlapEx, 10000))
+		
+		if (!GetQueuedCompletionStatus(mIOCPHandle, &numberOfBytes, &completionKey, (LPOVERLAPPED*)&overlapEx, INT32_MAX))
 		{
 			logError("GetQueuedCompletionStatus");
 			return;
 		}
-		// TODO: - 이게 옳바른 패턴인지 확인 필요
-		// TODO: 여기서 무부를 하니깐 포인터가 null로 초기화 ㅋㅋ
+
 		if (completionKey == makeSocketKey(mListenSocket))
 		{
 			if (candidatedClientSocket->UpdateAcceptContext(*mListenSocket))
@@ -104,24 +110,36 @@ public:
 			}
 			candidatedClientSocket = std::make_shared<Socket>();
 			mListenSocket->AcceptEx(*candidatedClientSocket);
-			clientSockets[completionKey] = candidatedClientSocket;
+			clientSockets[makeSocketKey(candidatedClientSocket)] = candidatedClientSocket;
 		}
 		else
 		{
-			// MARK: - optional이긴하지만 값을 못찾을 경우 어떻게 될지 확인을 해야함
 			if (auto clientSocket = getClient(completionKey))
 			{
 				if (numberOfBytes <= 0)
 				{
 					OnClose(completionKey);
 					clientSockets.erase(completionKey);
-					std::cout << "socket 종료" << "\n";
+					std::cout << completionKey << "socket 종료" << "\n";
 				}
 				else
 				{
-					char* buffer = (*clientSocket)->OnReceive(numberOfBytes);
-					OnReceive(completionKey, buffer, numberOfBytes);
-					(*clientSocket)->OverlappedReceive();
+					switch (overlapEx->operation) {
+					case IOOperation::RECV: {
+						char* buffer = (*clientSocket)->OnReceive(numberOfBytes);
+						OnReceive(completionKey, buffer, numberOfBytes);
+						(*clientSocket)->OverlappedReceive();
+						break;
+					}
+					case IOOperation::SEND: {
+						// sendQueue가 돌아가는 쓰레드가 있고 해당 스레드에서는 워커를 기반으로 동작하면 좋을 것 같음. 그렇지 않으면 sendQeueu가 있는 스레드 하나가 cpu를 계속 점유하면서 돌아가야만 한다는 문제가 있다.
+						//sendQueue.pop();
+						break;
+					}
+					default:
+						logError("Unknown Overlapped IOOperation");
+						break;
+					}
 				}
 			}
 			else 
@@ -161,6 +179,7 @@ private:
 	HANDLE mIOCPHandle;
 	std::unique_ptr<Socket> mListenSocket;
 	std::unordered_map<SocketKey, std::shared_ptr<Socket>> clientSockets;
+	std::queue<SendTask> sendQueue;
 	
 	std::optional<std::shared_ptr<Socket>> getClient(const SocketKey& key) {
 		if (clientSockets.find(key) == clientSockets.end())

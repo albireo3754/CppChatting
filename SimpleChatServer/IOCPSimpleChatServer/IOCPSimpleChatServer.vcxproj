@@ -217,6 +217,7 @@
   <ItemGroup>
     <ClInclude Include="IOCompletionPort.h" />
     <ClInclude Include="IOCPNetwork.h" />
+    <ClInclude Include="IOCPSimpleChatServer.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="Socket.h" />
   </ItemGroup>
