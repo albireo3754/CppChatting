@@ -56,7 +56,7 @@ public:
 		mSendOverlappedEx.wsaBuf.len = MaxBufLength;
 		mSendOverlappedEx.operation = IOOperation::SEND;
 
-		acceptBuf = new char[1024];
+		acceptBuf = (char*)malloc(1024);
 
 		if (mWinSockImpl == INVALID_SOCKET) {
 			throw std::runtime_error("INVALID SOCKET");
@@ -73,7 +73,10 @@ public:
 			std::cout << this << "[Error] Socket Did Not Closed with: " << WSAGetLastError() << "\n";
 		}
 		delete (mReceivedOverlappedEx.wsaBuf.buf);
+		//delete (mSendOverlappedEx.wsaBuf.buf);
 		delete acceptBuf;
+		// TODO: accept OverlappedÁßÀÏ¶© ¼ÒÄÏÀ» ²÷À¸¸é °ï¶õ
+		//free(acceptBuf);
 	}
 
 	bool Listen() {

@@ -6,7 +6,6 @@
 #include <memory>
 #include <string>
 #include <optional>
-#include <queue>
 
 #define MAX_SOCKBUF 1024	//패킷 크기
 #define MAX_WORKERTHREAD 4  //쓰레드 풀에 넣을 쓰레드 수
@@ -18,13 +17,7 @@ enum class NetworkEvent {
 	OnClose
 };
 
-struct SendTask {
-	SocketKey key;
-	std::unique_ptr<char> buffer;
-	int bufferLen;
-};
-
-typedef ULONG_PTR SocketKey;
+using SocketKey = ULONG_PTR;
 
 class IOCompletionPort {
 
@@ -68,7 +61,7 @@ public:
 		}
 		return false;
 	}
-
+	
 	bool BindAndListen(int port) {
 		if (!mListenSocket->Bind(port) || !mListenSocket->Listen()) {
 			return 1;
@@ -96,10 +89,10 @@ public:
 			{
 				Add(*candidatedClientSocket);
 				OnConnect(makeSocketKey(candidatedClientSocket));
-				if (candidatedClientSocket->OverlappedReceive() != 0
+				if (candidatedClientSocket->StartOverlappedReceive() != 0
 					&& WSAGetLastError() != ERROR_IO_PENDING)
 				{
-					logError("OverlappedReceive");
+					logError("StartOverlappedReceive");
 					clientSockets.erase(makeSocketKey(candidatedClientSocket));
 				}
 			}
@@ -126,14 +119,13 @@ public:
 				{
 					switch (overlapEx->operation) {
 					case IOOperation::RECV: {
-						char* buffer = (*clientSocket)->OnReceive(numberOfBytes);
+						char* buffer = clientSocket.value()->OnReceive(numberOfBytes);
 						OnReceive(completionKey, buffer, numberOfBytes);
-						(*clientSocket)->OverlappedReceive();
+						clientSocket.value()->StartOverlappedReceive();
 						break;
 					}
 					case IOOperation::SEND: {
-						// sendQueue가 돌아가는 쓰레드가 있고 해당 스레드에서는 워커를 기반으로 동작하면 좋을 것 같음. 그렇지 않으면 sendQeueu가 있는 스레드 하나가 cpu를 계속 점유하면서 돌아가야만 한다는 문제가 있다.
-						//sendQueue.pop();
+						clientSocket.value()->OverlappedDidSend();
 						break;
 					}
 					default:
