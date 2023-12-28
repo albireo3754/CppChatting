@@ -11,6 +11,8 @@ env_logger = { version = "0.10.1" }
 log = { version = "0.4.8", features = ["std"] }
 tonic = { version = "0.10.2" }
 prost = { version = "0.12.3" }
+tokio-tungstenite = { version = "0.21.0", features = ["default", "connect"] }
+futures-util = { version = "0.3.28", default-features = false, features = ["sink", "std"] }
 
 [build-dependencies]
 tonic-build = "0.10.2"

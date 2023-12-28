@@ -3,12 +3,25 @@ use std::collections::hash_map::RandomState;
 use std::collections::hash_set::Difference;
 use std::iter::Map;
 use std::time::Instant;
+use futures_util::{StreamExt, Future};
 use log::{debug, info, warn};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::task::JoinHandle;
+use tokio_tungstenite::tungstenite::Message;
+use tokio_tungstenite::tungstenite::http::Error;
+use tokio_tungstenite::tungstenite::stream::MaybeTlsStream;
+use tokio_tungstenite::{connect_async, WebSocketStream};
+use futures_util::SinkExt;
+pub mod packet;
+use crate::packet::PacketManager;
+// type WebsockStream = WebSocketStream<MaybeTlsStream<>>;
+// struct Session {
+//     websocket_stream: 
+// }
 
 struct Client {
     client_id: i32,
+    // session: Session,
 }
 
 impl Client {
@@ -26,7 +39,36 @@ impl Client {
     }
 
     fn send_message(&self, room_id: i32, message: String) {
+        let packet = PacketManager {};
+        // tokio_tungstenite::tungstenite::Message::Text("호우".to_owned())
+        {
+            // session
+            write.send(packet).await;
+        }
+        
+    }
+}
 
+struct WebSocketMessageController {
+    
+}
+
+impl WebSocketMessageController {
+    pub fn handle(&self, message: Message) {
+        match (message) {
+            Message::Text(s) => {
+                if s.starts_with("join") {
+
+                } else if s.starts_with("exit") {
+
+                } else if s.starts_with("send") {
+
+                }
+            }
+            _ => {
+
+            }
+        }
     }
 }
 
@@ -44,12 +86,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let start = Instant::now();
     for i in 1..=4000 {
         let handle = tokio::spawn(async move {
+            let (ws_stream, _) = connect_async("127.0.0.1:8000").await.expect("Failed to connect");
+            let (write, read) = ws_stream.split();
+            read.for_each(|message| async {
+                let data = message.unwrap().into_data();
+                tokio::io::stdout().write_all(&data).await.unwrap();
+            });
+        
             let new_client = Client { client_id: i };
             new_client.on_room_state_updated();
-            new_client.join_chat_room(dummy_room_id);
+            {
+                // 유저가 채팅방 접속을 시도함
+                new_client.join_chat_room(dummy_room_id);
+            }
+            
             return i;
             todo!("room join success message를 받았을때");
-            new_client.send_message(dummy_room_id, String::from("호우"));
+            {
+                // 유저가 호우를 시도함
+                new_client.send_message(dummy_room_id, String::from("호우"));
+            }
             todo!("호우에 대한 receive를 ack를 받았을때");
             i
         });

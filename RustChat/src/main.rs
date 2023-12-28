@@ -1,18 +1,17 @@
+mod session;
+
 use std::collections::HashMap;
 use std::net::{SocketAddrV4, Ipv4Addr};
 use std::vec;
 
+use futures_util::StreamExt;
 use log::info;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::mpsc::channel;
 use client::{Client, EventQueue, Event};
+use tokio_tungstenite::accept_async;
 
-trait Session {
-    fn onReceive();
-    fn failOnSend();
-    fn onClose();
-}
 // 패킷을 어떻게 관리해야하지? client A가 채팅을 치면 채팅을 쳤다고 모든 클라이언트에 전송해야함 -> 
 // Join(userId,roomId) -> 성공했으면 그냥내려주면되지 Join(userId,roomId), roomSession을 만들어서 해당 룸 세션이 세션메니저를 통해 자기가 가지고 있는 세션에 발사를 할 수 있도록 만들어줌
 // Send(userId,message) -> 
@@ -138,8 +137,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     loop {
         let (mut socket, _) = server.listener.accept().await?;
-
-
+        let websocket_stream = accept_async(socket).await.unwrap();
+        let (write, read) = websocket_stream.split();
+        
         let mut client = Client { stream: &socket };
         
         tokio::spawn(async move {
