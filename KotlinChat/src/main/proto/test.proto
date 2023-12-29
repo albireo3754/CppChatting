@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package me.karol; // package
+
+option java_outer_classname = "Karol";                                                  // 클래스 이름
+option java_multiple_files = true;                                                      // 1개의 proto 파일에서 여러개의 클래스 파일이 생성 가능
+
+/**
+ * Karol Service
+ */
+service KarolService {
+  rpc SingleRequestSingleResponse (HelloRequest) returns (HelloResponse);             // 단일 요청 단일 응답 RPC
+  rpc SingleRequestManyResponse (HelloRequest) returns (stream HelloResponse);        // 단일 요청 멀티 응답 RPC
+  rpc ManyRequestSingleResponse (stream HelloRequest) returns (HelloResponse);        // 멀티 요청 단일 응답 RPC
+  rpc ManyRequestManyResponse (stream HelloRequest) returns (stream HelloResponse);   // 멀티 요청 멀티 응답 RPC
+}
+
+message HelloRequest { // 요청 메시지 포맷
+  string hello = 1;
+}
+
+message HelloResponse { // 응답 메시지 포맷
+  string world = 1;
+}
