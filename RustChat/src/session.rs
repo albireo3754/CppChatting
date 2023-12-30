@@ -1,10 +1,10 @@
-use std::{rc::Weak, collections::{hash_map, HashMap}, ops::Index};
+use std::{collections::{hash_map, HashMap}, ops::Index, sync::{Arc, Weak}};
 
-use futures_util::{StreamExt, stream::{SplitSink, SplitStream}, SinkExt};
-use tokio::net::TcpStream;
+use futures_util::{StreamExt, stream::{SplitSink, SplitStream}, SinkExt, TryStreamExt};
+use tokio::{net::TcpStream, sync::Mutex};
 use tokio_tungstenite::{WebSocketStream, tungstenite::{Message, Error}};
 
-use crate::{Packet, SessionManager};
+use crate::{Packet};
 
 pub type WSStream = WebSocketStream<TcpStream>;
 pub type WriteBuffer = SplitSink<WebSocketStream<TcpStream>, Message>;
@@ -13,31 +13,41 @@ pub struct WebsocketSession {
     packet_delegate: Weak<dyn PacketHandler>,
     write_buffer: WriteBuffer,
     read_buffer: ReadBuffer,
+    arc_buffer: Arc<i32>,
 }
 
 impl WebsocketSession {
-    fn new(packet_delegate: Weak<dyn PacketHandler>, new_stream: WSStream) -> WebsocketSession {
+    pub fn new(packet_delegate: Weak<dyn PacketHandler>, new_stream: WSStream) -> WebsocketSession {
         let (write, read) = new_stream.split();
-        let session = WebsocketSession { packet_delegate, write_buffer: write, read_buffer: read };
+        let session = WebsocketSession { packet_delegate, write_buffer: write, read_buffer: read, arc_buffer: Arc::new(1) };
         
-        session.start_recv();
-
         session
     }
 
-    fn start_recv(&self) {
-        self.read_buffer.for_each(|message| async {
-            let packet_delegate_ref = self.packet_delegate.upgrade();
-            match packet_delegate_ref {
-                Some(r) => {
-                    r.handle_message(message);
-                }
-                None => {
-                }
+    fn start_recv(&mut self) {
+        // self.read_buffer를 아래로 보내얗마
+        let arc_read_buffer = Arc::new(Mutex::new(self.read_buffer));
+        let self_packet_delegate = 
+        tokio::spawn(async move {
+            let mut buffer = arc_read_buffer.lock().await;
+            let packet = buffer.next().await;
+            if let Some(message) = packet {
+                // if let Some(rc) = self.packet_delegate.upgrade() {
+                    // rc.handle_message(message);
+                // }
             }
+            //     if let Some(rc) = self.packet_delegate.upgrade() {
+            //         rc.handle_message(message);
+            //     }
+            // }
+
         });
+
     }
 }
+
+// protocol
+//  
 
 impl ISession for WebsocketSession {
     fn send(&self, message: String) {
@@ -51,6 +61,8 @@ impl ISession for WebsocketSession {
 // session -> room에게 넘길땐 room이 Session의 delegate를 구현하는 구조로 가는게 맞긴함;;
 
 // session이 적용된 chat_room과 엔티티로서 chat_room을 하나로 볼것인가? 하는 의문
+
+// join
 
 trait ISession {
     fn send(&self, message: String);
@@ -106,14 +118,22 @@ impl<'a> ChatRoom<'a> {
     }
 }
 
-// 이런식으로 만들면 ChatRoom이 Pakcet   
-impl PacketHandler for ChatRoom {
-    fn handle_message(&self, message: Result<Message, Error>) {
-        self.join(1, active_session)
-    }
-}
+// "join/conversation/1"
+// "join/conversation/2"
+// header + protocol로 패킷을 설계해서 보냄
+// ws 에선?
+// function + parameter를 보내는거랑 같은 개념인데...
+// proto buf를 활용해서
+// 바이너리를 보내면
+// chat_room_lifecycle
+// chat_enter (user_id, chat_id)
+// chat_channel_enter (session_open)
+// chat_channel_exit (session_close)
+// chat_exit (user_id, chat_id)
 
-trait PacketHandler {
+// 이런식으로 만들면 ChatRoom이 Pakcet
+
+pub trait PacketHandler {
     fn handle_message(&self, message: Result<Message, Error>);
 }
 

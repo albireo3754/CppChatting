@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+message C_ChatJoin {
+    int32 user_id = 1;
+    int32 chat_id = 2;
+}
+
+message C_ChatSessionJoin {
+    int32 user_id = 1;
+    int32 chat_id = 2;
+}
+
+message C_ChatJoin {
+    int32 user_id = 1;
+}

@@ -39,13 +39,6 @@ impl Client {
     }
 
     fn send_message(&self, room_id: i32, message: String) {
-        let packet = PacketManager {};
-        // tokio_tungstenite::tungstenite::Message::Text("호우".to_owned())
-        {
-            // session
-            write.send(packet).await;
-        }
-        
     }
 }
 
@@ -123,7 +116,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Time elapsed in expensive_function() is: {:?}", duration);
     let expected_result: HashSet<i32, RandomState> = HashSet::from_iter((1..=4000).into_iter());
     let result_set = HashSet::from_iter(result_vector);
-    let diff: HashSet<i32> = expected_result.difference(&result_set).collect();
+    let diff: HashSet<_> = expected_result.difference(&result_set).collect();
 
     if diff.len() > 0 {
         println!("Error with: {:?}", diff);
