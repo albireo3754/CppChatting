@@ -1,9 +1,7 @@
 syntax = "proto3";
 
-package me.karol; // package
-
-option java_outer_classname = "Karol";                                                  // 클래스 이름
-option java_multiple_files = true;                                                      // 1개의 proto 파일에서 여러개의 클래스 파일이 생성 가능
+//option java_outer_classname = "Karol";                                                  // 클래스 이름
+//option java_multiple_files = true;                                                      // 1개의 proto 파일에서 여러개의 클래스 파일이 생성 가능
 
 /**
  * Karol Service

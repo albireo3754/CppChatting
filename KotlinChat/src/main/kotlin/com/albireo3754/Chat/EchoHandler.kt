@@ -1,5 +1,6 @@
 package com.albireo3754.Chat
 
+import KarolServiceGrpcKt
 import org.springframework.stereotype.Component
 import org.springframework.web.socket.CloseStatus
 import org.springframework.web.socket.WebSocketHandler
@@ -13,6 +14,7 @@ class EchoHandler: WebSocketHandler {
     }
 
     override fun handleMessage(session: WebSocketSession, message: WebSocketMessage<*>) {
+        KarolServiceGrpcKt
         session.sendMessage(message)
     }
 
